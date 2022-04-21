@@ -7,22 +7,16 @@
 #include "QPSK.h"
 #include "QPSKDlg.h"
 #include "afxdialogex.h"
-#include "AudioFile.h"
-#include <vector>
-#include <chrono>
-//#include "../GenerateSignal/GenerateSignalDlg.h"
-//#include "../GenerateSignal/GenerateSignal/GenerateSignalDlg.h"
-using namespace std::chrono;	
-//#include "../qpsk/decoder.h"
+#include "AudioFile/AudioFile.h"
+using namespace std;
+
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+
 #define KOORDGET(x,y) (xpget*((x)-xminget)),(ypget*((y)-ymaxget)) 
-
-// Диалоговое окно CQPSKDlg
-
 
 
 CQPSKDlg::CQPSKDlg(CWnd* pParent /*=nullptr*/)
@@ -31,19 +25,22 @@ CQPSKDlg::CQPSKDlg(CWnd* pParent /*=nullptr*/)
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
+
 void CQPSKDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 }
 
+
 BEGIN_MESSAGE_MAP(CQPSKDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_BN_CLICKED(IDC_Read, &CQPSKDlg::OnBnClickedRead)
+	ON_BN_CLICKED(IDC_GET_INPUT_BITS, &CQPSKDlg::OnBnClickedGetInputBits)
+	ON_BN_CLICKED(IDC_GET_GENERAL_SIGN, &CQPSKDlg::OnBnClickedGetGeneralSign)
+	ON_BN_CLICKED(IDC_GET_IQ, &CQPSKDlg::OnBnClickedGetIq)
+	ON_BN_CLICKED(IDC_GET_QPSK, &CQPSKDlg::OnBnClickedGetQpsk)
 END_MESSAGE_MAP()
 
-
-// Обработчики сообщений CQPSKDlg
 
 BOOL CQPSKDlg::OnInitDialog()
 {
@@ -54,21 +51,35 @@ BOOL CQPSKDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// Крупный значок
 	SetIcon(m_hIcon, FALSE);		// Мелкий значок
 
-	PicWnd_Signal = GetDlgItem(IDC_QPSK);
-	PicDc_Signal = PicWnd_Signal->GetDC();
-	PicWnd_Signal->GetClientRect(&Pic_Signal);
-	graf_pen.CreatePen(PS_SOLID, 2, RGB(20, 220, 0));
-	graf_pen2.CreatePen(PS_SOLID, 2, RGB(220, 20, 0));
+	PicWndBits = GetDlgItem(IDC_BITS);
+	PicDcBits = PicWndBits->GetDC();
+	PicWndBits->GetClientRect(&PicBits);
 
-	PicWnd_Spectr = GetDlgItem(IDC_spectr);
-	PicDc_Spectr = PicWnd_Spectr->GetDC();
-	PicWnd_Spectr->GetClientRect(&Pic_Spectr);
+	PicWndGeneral = GetDlgItem(IDC_GENERAL_SIGN);
+	PicDcGeneral = PicWndGeneral->GetDC();
+	PicWndGeneral->GetClientRect(&PicGeneral);
+
+	PicWndIComp = GetDlgItem(IDC_I_COMPONENT);
+	PicDcIComp = PicWndIComp->GetDC();
+	PicWndIComp->GetClientRect(&PicIComp);
+
+	PicWndQComp = GetDlgItem(IDC_Q_COMPONENT);
+	PicDcQComp = PicWndQComp->GetDC();
+	PicWndQComp->GetClientRect(&PicQComp);
+
+	PicWndQPSK = GetDlgItem(IDC_QPSK_SIGNAL);
+	PicDcQPSK = PicWndQPSK->GetDC();
+	PicWndQPSK->GetClientRect(&PicQPSK);
+
+	PicWndQPSKSpec = GetDlgItem(IDC_QPSK_SPECTRUM);
+	PicDcQPSKSpec = PicWndQPSKSpec->GetDC();
+	PicWndQPSKSpec->GetClientRect(&PicQPSKSpec);
+
+	graphPen.CreatePen(PS_SOLID, 2, RGB(20, 220, 0));
+	UpdateData(false);
 	return TRUE;  // возврат значения TRUE, если фокус не передан элементу управления
 }
 
-// При добавлении кнопки свертывания в диалоговое окно нужно воспользоваться приведенным ниже кодом,
-//  чтобы нарисовать значок.  Для приложений MFC, использующих модель документов или представлений,
-//  это автоматически выполняется рабочей областью.
 
 void CQPSKDlg::OnPaint()
 {
@@ -95,14 +106,14 @@ void CQPSKDlg::OnPaint()
 	}
 }
 
-// Система вызывает эту функцию для получения отображения курсора при перемещении
-//  свернутого окна.
+
 HCURSOR CQPSKDlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-void CQPSKDlg::DrawGraph(std::vector<std::vector<double>>& Mass, double MinX, double MaxX, std::vector<CPen*> GraphPen, CDC* WinDc, CRect WinPic)
+
+void CQPSKDlg::DrawGraph(vector<vector<double>>& Mass, double MinX, double MaxX, vector<CPen*> GraphPen, CDC* WinDc, CRect WinPic)
 {
 	//----- поиск максимального и минимального значения -----------------------------
 
@@ -149,9 +160,8 @@ void CQPSKDlg::DrawGraph(std::vector<std::vector<double>>& Mass, double MinX, do
 	CBitmap* pBmp = (CBitmap*)MemDc->SelectObject(&bmp);
 	MemDc->FillSolidRect(WinPic, RGB(255, 255, 255));
 
-	MemDc->SelectObject(&setka_pen);
+	MemDc->SelectObject(&gridPen);
 	double shagX = (xmaxget - xminget) / 10;
-	//отрисовка сетки по y
 	for (float x = xminget; x <= xmaxget; x += shagX)
 	{
 		MemDc->MoveTo(KOORDGET(x, ymaxget));
@@ -165,11 +175,7 @@ void CQPSKDlg::DrawGraph(std::vector<std::vector<double>>& Mass, double MinX, do
 		MemDc->LineTo(KOORDGET(xmaxget, y));
 	}
 
-	MemDc->SelectObject(&osi_pen);
-	//создаём Ось Y
-	//MemDc->MoveTo(KOORDGET(0, ymaxget));
-	//MemDc->LineTo(KOORDGET(0, yminget));
-	//создаём Ось Х
+	MemDc->SelectObject(&axesPen);
 	MemDc->MoveTo(KOORDGET(xminget, 0));
 	MemDc->LineTo(KOORDGET(xmaxget, 0));
 
@@ -212,9 +218,6 @@ void CQPSKDlg::DrawGraph(std::vector<std::vector<double>>& Mass, double MinX, do
 	WinDc->BitBlt(0, 0, WinPic.Width(), WinPic.Height(), MemDc, 0, 0, SRCCOPY);
 	delete MemDc;
 }
-
-
-
 
 
 static void newFFT(vector<complex<double>>& in, int direction)
@@ -290,132 +293,22 @@ static void newFFT(vector<complex<double>>& in, int direction)
 
 }
 
-bool CQPSKDlg::RandomBit(double low_chance)
+
+void CQPSKDlg::OnBnClickedGetInputBits()
 {
-	return (rand() < RAND_MAX * low_chance);
 }
 
-void CQPSKDlg::OnBnClickedRead()
+
+void CQPSKDlg::OnBnClickedGetGeneralSign()
 {
-	/*AudioFile<double> audioFile;
-	audioFile.load("../GenerateSignal/audioFile.wav");
-	int channel = 0;
-	int numSamples = audioFile.getNumSamplesPerChannel();
-	std::vector<double> Inputsignal;
-	for (int i = 0; i < numSamples; i++)
-	{
-		Inputsignal.push_back(audioFile.samples[channel][i]);
-	}*/
-
-	double kolOtsh = 0;
-	double freq = 128;
-	double sampling_period = 1 / freq;
-	double N = 1;
-	vector<double> SQRT;
-	vector<double> meandr;
-	for (double i = kolOtsh; i < kolOtsh + N; i += sampling_period)
-	{
-		//CGenerateSignalDlg l;
-		double separated_bit = RandomBit(0.5);
-		meandr.push_back(separated_bit);
-		/*double I = 5. * cos(0.5 * i);
-		double Q = 5. * sin(0.5 * i);
-		SQRT.push_back(I* 5. * cos(0.5 * i + 6.28)-Q* 5. * sin(0.5 * i + 6.28));*/
-	}
-
-	vector<double> I;
-	vector<double> Q;
-	I.resize(meandr.size());
-	Q.resize(meandr.size());
-	Q[0] = meandr[0];
-	for (int i = 0; i < meandr.size()-2; i +=2)
-	{
-		I[i]= meandr[i];
-		I[i + 1] = meandr[i];
-		Q[i + 1] = meandr[i + 1];
-		Q[i + 2] = meandr[i + 1];
-	}
-	int iter = 0;
-	vector<double> II;
-	vector<double> QQ;
-	for (double i = kolOtsh; i < kolOtsh + N; i += sampling_period)
-	{
-		SQRT.push_back(I[iter]* 5. * cos(4 * i + 6.28)-Q[iter]* 5. * sin(4 * i + 6.28));
-		II.push_back(I[iter] * 5. * cos(4 * i + 6.28));
-		QQ.push_back(Q[iter] * 5. * sin(4 * i + 6.28));
-		iter++;
-	}
-	vector<vector<double>>spectr2;
-	/*spectr2.resize(3);
-	spectr2[0] = meandr;
-	spectr2[1] = I;
-	spectr2[2] = Q;*/
-	spectr2.resize(3);
-	spectr2[0] = SQRT;
-	spectr2[1] = II;
-	spectr2[2] = QQ;
-	GraphPen.clear();
-	GraphPen.push_back(new CPen(PS_SOLID, 2, RGB(255, 0, 0)));
-	GraphPen.push_back(new CPen(PS_SOLID, 2, RGB(50, 125, 50)));
-	GraphPen.push_back(new CPen(PS_SOLID, 2, RGB(0, 0, 255)));
-	DrawGraph(spectr2, kolOtsh, kolOtsh + N, GraphPen, PicDc_Signal, Pic_Signal);
+}
 
 
-	AudioFile<double> audioFile;
-	AudioFile<double>::AudioBuffer buffer;
-	buffer.resize(2);
-	buffer[0].resize(N / sampling_period);
-	buffer[1].resize(N / sampling_period);
-	int numChannels = 2;
-	int numSamplesPerChannel = 100000;
-	float sampleRate = 44100.f;
-	float frequency = 440.f;
-	int iterr = 0;
-	for (double i = kolOtsh; i < kolOtsh + N; i += sampling_period)
-	{
-		float sample = (float)spectr2[0][iterr];
+void CQPSKDlg::OnBnClickedGetIq()
+{
+}
 
 
-		for (int channel = 0; channel < numChannels; channel++)
-			buffer[channel][iterr] = sample * 0.5;
-		iterr++;
-	}
-
-	bool ok = audioFile.setAudioBuffer(buffer);
-	audioFile.save("audioFile.wav", AudioFileFormat::Wave);
-
-
-	vector<complex<double>>* sp = new vector<complex<double>>;
-
-	(*sp).resize(meandr.size());
-	for (int i = 0; i < meandr.size(); i++)
-	{
-		(*sp)[i] = SQRT[i];
-	}
-
-	newFFT((*sp), -1);
-
-	vector<double>spectr_long_signal;
-	for (int i = 0; i < (*sp).size(); i++)
-	{
-		spectr_long_signal.push_back(abs((*sp)[i]));
-	}
-	vector<double>buf;
-	for (int i = spectr_long_signal.size()/2; i < spectr_long_signal.size(); i++)
-	{
-		buf.push_back(spectr_long_signal[i]);
-	}
-	for (int i = 0; i < spectr_long_signal.size() / 2; i++)
-	{
-		buf.push_back(spectr_long_signal[i]);
-	}
-
-	vector<vector<double>>spectr;
-	spectr.resize(1);
-	spectr[0] = buf;
-	GraphPen.clear();
-	GraphPen.push_back(new CPen(PS_SOLID, 2, RGB(255, 0, 0)));
-	GraphPen.push_back(new CPen(PS_SOLID, 2, RGB(50, 125, 50)));
-	GraphPen.push_back(new CPen(PS_SOLID, 2, RGB(0, 0, 255)));
-	DrawGraph(spectr, 0, (*sp).size(), GraphPen, PicDc_Spectr, Pic_Spectr);
+void CQPSKDlg::OnBnClickedGetQpsk()
+{
 }
