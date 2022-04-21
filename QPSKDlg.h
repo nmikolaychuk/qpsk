@@ -1,34 +1,17 @@
 ﻿#pragma once
+#define _USE_MATH_DEFINES
 #include <vector>
 #include <complex>
+#include <fstream>
+#include <math.h>
 using namespace std;
 
-struct SignalGenerationParameters
+enum class GraphType
 {
-	double start_timestamp;
-	double start_phase;
-	double duration;
-
-	double n_samples;
-	double sampling_frequency;
-	double bitrate;
-	double additional_parameter;
+	Bits = 0,
+	Graphic = 1
 };
 
-struct Signal
-{
-	vector<complex<double>> signal;
-	vector<double> keys;
-
-	string name;
-	string description;
-
-	double sampling;
-	double timestamp;
-	double duration;
-};
-
-// Диалоговое окно CQPSKDlg
 class CQPSKDlg : public CDialogEx
 {
 // Создание
@@ -55,6 +38,18 @@ public:
 	double xminget, xmaxget,
 		yminget, ymaxget,
 		xpget, ypget;
+
+	// Параметры.
+	double ampl = 1.;
+	double startPhase = M_PI;
+	double sampleRate = 44100.;
+	double freq = 5.5;
+	double duration = 1.;
+	int countOfBits = 16;
+	double syncTime;
+	vector<double> inputBits;
+	vector<double> iComp;
+	vector<double> qComp;
 
 	// Области рисования.
 	CWnd* PicWndBits;
@@ -90,7 +85,9 @@ public:
 	// Функции.
 	void DrawGraph(std::vector<std::vector<double>>& Mass,
 		double MinX, double MaxX, std::vector<CPen*> GraphPen,
-		CDC* WinDc, CRect WinPic);
+		CDC* WinDc, CRect WinPic, GraphType type);
+	vector<double> GetGeneralSignal(double ampl, double start_phase,
+		double sampling_freq, int duration);
 
 	// Обработчики.
 	afx_msg void OnBnClickedGetInputBits();

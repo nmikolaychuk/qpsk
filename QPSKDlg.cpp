@@ -1,8 +1,4 @@
-﻿
-// QPSKDlg.cpp: файл реализации
-//
-
-#include "pch.h"
+﻿#include "pch.h"
 #include "framework.h"
 #include "QPSK.h"
 #include "QPSKDlg.h"
@@ -76,6 +72,7 @@ BOOL CQPSKDlg::OnInitDialog()
 	PicWndQPSKSpec->GetClientRect(&PicQPSKSpec);
 
 	graphPen.CreatePen(PS_SOLID, 2, RGB(20, 220, 0));
+	graphPens.push_back(&graphPen);
 	UpdateData(false);
 	return TRUE;  // возврат значения TRUE, если фокус не передан элементу управления
 }
@@ -113,10 +110,10 @@ HCURSOR CQPSKDlg::OnQueryDragIcon()
 }
 
 
-void CQPSKDlg::DrawGraph(vector<vector<double>>& Mass, double MinX, double MaxX, vector<CPen*> GraphPen, CDC* WinDc, CRect WinPic)
+void CQPSKDlg::DrawGraph(vector<vector<double>>& Mass, double MinX,
+	double MaxX, vector<CPen*> GraphPen,
+	CDC* WinDc, CRect WinPic, GraphType gType)
 {
-	//----- поиск максимального и минимального значения -----------------------------
-
 	vector<double> MaxY;
 	MaxY.resize(Mass.size());
 
@@ -132,11 +129,10 @@ void CQPSKDlg::DrawGraph(vector<vector<double>>& Mass, double MinX, double MaxX,
 		}
 	}
 
-
-	xminget = MinX;			//минимальное значение х
-	xmaxget = MaxX;			//максимальное значение х
-	yminget = -1;			//минимальное значение y
-	ymaxget = 0;			//максимальное значение y
+	xminget = MinX;	
+	xmaxget = MaxX;
+	yminget = -1;	
+	ymaxget = 0;	
 
 	for (int i = 0; i < MaxY.size(); i++)
 	{
@@ -144,9 +140,10 @@ void CQPSKDlg::DrawGraph(vector<vector<double>>& Mass, double MinX, double MaxX,
 		if (MinY[i] < yminget) yminget = MinY[i];
 	}
 
-	yminget = -ymaxget;
+	if (gType == GraphType::Bits) yminget = -ymaxget * 0.1;
+	else if (gType == GraphType::Graphic) yminget = -ymaxget;
 
-	xpget = ((double)(WinPic.Width()) / (xmaxget - xminget));			//Коэффициенты пересчёта координат по Х
+	xpget = ((double)(WinPic.Width()) / (xmaxget - xminget));
 	ypget = -((double)(WinPic.Height()) / (ymaxget - yminget));
 
 	CBitmap bmp;
@@ -158,63 +155,50 @@ void CQPSKDlg::DrawGraph(vector<vector<double>>& Mass, double MinX, double MaxX,
 		WinPic.Width(),
 		WinPic.Height());
 	CBitmap* pBmp = (CBitmap*)MemDc->SelectObject(&bmp);
-	MemDc->FillSolidRect(WinPic, RGB(255, 255, 255));
-
-	MemDc->SelectObject(&gridPen);
-	double shagX = (xmaxget - xminget) / 10;
-	for (float x = xminget; x <= xmaxget; x += shagX)
-	{
-		MemDc->MoveTo(KOORDGET(x, ymaxget));
-		MemDc->LineTo(KOORDGET(x, yminget));
-	}
-	double shagY = (ymaxget - yminget) / 10;
-	//отрисовка сетки по x
-	for (float y = yminget; y <= ymaxget; y += shagY)
-	{
-		MemDc->MoveTo(KOORDGET(xminget, y));
-		MemDc->LineTo(KOORDGET(xmaxget, y));
-	}
+	MemDc->FillSolidRect(WinPic, RGB(240, 240, 240));
 
 	MemDc->SelectObject(&axesPen);
 	MemDc->MoveTo(KOORDGET(xminget, 0));
 	MemDc->LineTo(KOORDGET(xmaxget, 0));
 
-	//подпись осей
-	MemDc->TextOutW(KOORDGET(0, ymaxget - 0.2), _T("")); //Y
-	MemDc->TextOutW(KOORDGET(xmaxget - 0.3, 0 - 0.2), _T("A")); //X
-
 	CFont font3;
 	font3.CreateFontW(15, 0, 0, 0, FW_NORMAL, 0, 0, 0, ANSI_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS || CLIP_LH_ANGLES, DEFAULT_QUALITY, DEFAULT_PITCH, _T("Times New Roman"));
 	MemDc->SelectObject(font3);
-	//по Y с шагом 5
-	for (double i = yminget; i <= ymaxget; i += shagY)
-	{
-		CString str;
-		str.Format(_T("%.1f"), i);
-		MemDc->TextOutW(KOORDGET(0.01, i), str);
-	}
+	
+	double step = (MaxX - MinX) / Mass[0].size();
 
-	for (double j = xminget; j <= xmaxget; j += shagX)
+	for (double j = xminget; j < xmaxget; j += step)
 	{
 		CString str;
 		str.Format(_T("%.1f"), j);
-		MemDc->TextOutW(KOORDGET(j, -0.00005), str);
-	}
-	double shag = (MaxX - MinX) / Mass[0].size();
-	//MemDc->SelectObject(&graf_pen2);
-	for (int i = 0; i < Mass.size(); i++)
-	{
-		double x = MinX;
-		MemDc->SelectObject(GraphPen[i]);
-		MemDc->MoveTo(KOORDGET(MinX, Mass[i][0]));
-		for (int j = 0; j < Mass[i].size(); j++)
-		{
-			MemDc->LineTo(KOORDGET(x, Mass[i][j]));
-			x += shag;
-		}
+		MemDc->TextOutW(KOORDGET(j, 0.01 * ymaxget), str);
 	}
 
-	//----- вывод на экран -------------------------------------------
+	for (int i = 0; i < Mass.size(); i++)
+	{
+		MemDc->SelectObject(GraphPen[i]);
+		double x = MinX;
+		MemDc->MoveTo(KOORDGET(MinX, Mass[i][0]));
+		for (int j = 1; j < Mass[i].size(); j++)
+		{
+			if (gType == GraphType::Graphic) {
+				MemDc->LineTo(KOORDGET(x, Mass[i][j]));
+				x += step;
+			}
+			else if (gType == GraphType::Bits) {
+				x += step;
+				MemDc->LineTo(KOORDGET(x, Mass[i][j - 1]));
+				// Вертикальные линии.
+				if (Mass[i][j - 1] != Mass[i][j]) {
+					MemDc->LineTo(KOORDGET(x, Mass[i][j]));
+				}
+				if (j == Mass[i].size() - 1) {
+					x += step;
+					MemDc->LineTo(KOORDGET(x, Mass[i][j]));
+				}
+			}
+		}
+	}
 	WinDc->BitBlt(0, 0, WinPic.Width(), WinPic.Height(), MemDc, 0, 0, SRCCOPY);
 	delete MemDc;
 }
@@ -294,21 +278,114 @@ static void newFFT(vector<complex<double>>& in, int direction)
 }
 
 
+vector<double> GetInputBits(int length)
+{
+	vector<double> bits;
+	if (length > 0) {
+		for (int i = 0; i < length; i++) {
+			bits.push_back(double(rand() < RAND_MAX * 0.5));
+		}
+	}
+	return bits;
+}
+
+
 void CQPSKDlg::OnBnClickedGetInputBits()
 {
+	// Генерация входной последовательности.
+	// srand(time(NULL));
+	inputBits = GetInputBits(countOfBits);
+	vector<vector<double>> graphs;
+	graphs.push_back(inputBits);
+
+	GraphType type = GraphType::Bits;
+	DrawGraph(graphs, 0, inputBits.size(), graphPens, PicDcBits, PicBits, type);
+}
+
+
+vector<double> CQPSKDlg::GetGeneralSignal(double ampl, double start_phase, double sampling_freq, int duration) {
+	vector<double> signal;
+	int length_of_signal = round(sampling_freq * (double)duration) + syncTime;
+	// Частота сигнала, Гц.
+	for (int t = syncTime; t < length_of_signal; ++t) {
+		// Вычисление частоты.
+		double w = 2. * M_PI * freq;
+		signal.push_back(ampl * sin(w * t / sampling_freq + start_phase));
+	}
+	syncTime = length_of_signal - 1;
+	return signal;
 }
 
 
 void CQPSKDlg::OnBnClickedGetGeneralSign()
-{
+{ 
+	vector<double> generalSignal = GetGeneralSignal(ampl, startPhase, sampleRate, duration);
+	vector<vector<double>> graphs;
+	graphs.push_back(generalSignal);
+
+	GraphType type = GraphType::Graphic;
+	DrawGraph(graphs, 0, generalSignal.size(), graphPens, PicDcGeneral, PicGeneral, type);
 }
 
 
 void CQPSKDlg::OnBnClickedGetIq()
 {
+	if (!inputBits.empty()) {
+		iComp.resize(inputBits.size());
+		qComp.resize(inputBits.size());
+		for (int i = 0; i <= inputBits.size() - 2; i += 2)
+		{
+			iComp[i] = inputBits[i];
+			iComp[i + 1] = inputBits[i];
+			qComp[i] = inputBits[i + 1];
+			qComp[i + 1] = inputBits[i + 1];
+		}
+
+		vector<vector<double>> iGraphs;
+		iGraphs.push_back(iComp);
+
+		vector<vector<double>> qGraphs;
+		qGraphs.push_back(qComp);
+
+		GraphType type = GraphType::Bits;
+		DrawGraph(iGraphs, 0, iComp.size(), graphPens, PicDcIComp, PicIComp, type);
+		DrawGraph(qGraphs, 0, qComp.size(), graphPens, PicDcQComp, PicQComp, type);
+	}
 }
 
 
 void CQPSKDlg::OnBnClickedGetQpsk()
 {
+	if (!iComp.empty() && !qComp.empty()) {
+		double length = sampleRate * duration;
+		double iq_step = length / (double)countOfBits;
+		vector<double> qpskSignal(length);
+		for (int i = 0; i < length; i++) {
+			int index = (int)((double)i / iq_step);
+			double w = 2. * M_PI * freq;
+			qpskSignal[i] = iComp[index] * cos(w * i / sampleRate + startPhase) -
+				qComp[index] * sin(w * i / sampleRate + startPhase);
+		}
+
+		vector<vector<double>> graphsSignal;
+		graphsSignal.push_back(qpskSignal);
+
+		GraphType type = GraphType::Graphic;
+		DrawGraph(graphsSignal, 0, qpskSignal.size(), graphPens, PicDcQPSK, PicQPSK, type);
+
+		// Спектр.
+		vector<complex<double>> qpskSpectrum;
+		for (int i = 0; i < length; i++) {
+			qpskSpectrum.push_back(qpskSignal[i]);
+		}
+		
+		newFFT(qpskSpectrum, -1);
+		vector<vector<double>> graphsSpec;
+		graphsSpec.resize(1);
+		for (int i = 0; i < qpskSpectrum.size(); i++) {
+			graphsSpec[0].push_back(abs(qpskSpectrum[i]));
+		}
+
+		DrawGraph(graphsSpec, 0, graphsSpec.size(), graphPens, PicDcQPSKSpec, PicQPSKSpec, type);
+	}
 }
