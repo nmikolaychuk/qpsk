@@ -4,6 +4,7 @@
 #include <complex>
 #include <fstream>
 #include <math.h>
+#include "DemodulatorQPSK.h"
 using namespace std;
 
 enum class GraphType
@@ -27,7 +28,7 @@ public:
 	virtual void DoDataExchange(CDataExchange* pDX);	// поддержка DDX/DDV
 protected:
 	HICON m_hIcon;
-
+	
 	// Созданные функции схемы сообщений
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
@@ -42,7 +43,7 @@ public:
 	// Параметры.
 	double ampl = 1.;
 	double startPhase = M_PI;
-	double sampleRate = 44100.;
+	double sampleRate = 512.;
 	double freq = 5.5;
 	double duration = 1.;
 	int countOfBits = 16;
@@ -50,6 +51,7 @@ public:
 	vector<double> inputBits;
 	vector<double> iComp;
 	vector<double> qComp;
+	vector<double> qpskSignal;
 
 	// Области рисования.
 	CWnd* PicWndBits;
@@ -88,10 +90,16 @@ public:
 		CDC* WinDc, CRect WinPic, GraphType type);
 	vector<double> GetGeneralSignal(double ampl, double start_phase,
 		double sampling_freq, int duration);
+	void ConvolutionHS(vector<double> signal, vector<double>& convolution);
 
 	// Обработчики.
 	afx_msg void OnBnClickedGetInputBits();
 	afx_msg void OnBnClickedGetGeneralSign();
 	afx_msg void OnBnClickedGetIq();
 	afx_msg void OnBnClickedGetQpsk();
+	afx_msg void OnBnClickedIQfromQpsk();
+	afx_msg void OnBnClickedGetWindow();
+
+
+	DemodulatorQPSK* pGraphDialog = nullptr;
 };

@@ -35,6 +35,8 @@ BEGIN_MESSAGE_MAP(CQPSKDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_GET_GENERAL_SIGN, &CQPSKDlg::OnBnClickedGetGeneralSign)
 	ON_BN_CLICKED(IDC_GET_IQ, &CQPSKDlg::OnBnClickedGetIq)
 	ON_BN_CLICKED(IDC_GET_QPSK, &CQPSKDlg::OnBnClickedGetQpsk)
+	ON_BN_CLICKED(IDC_I_Q_from_QPSK, &CQPSKDlg::OnBnClickedIQfromQpsk)
+	ON_BN_CLICKED(IDC_GET_WINDOW, &CQPSKDlg::OnBnClickedGetWindow)
 END_MESSAGE_MAP()
 
 
@@ -359,7 +361,7 @@ void CQPSKDlg::OnBnClickedGetQpsk()
 	if (!iComp.empty() && !qComp.empty()) {
 		double length = sampleRate * duration;
 		double iq_step = length / (double)countOfBits;
-		vector<double> qpskSignal(length);
+		qpskSignal.resize(length);
 		for (int i = 0; i < length; i++) {
 			int index = (int)((double)i / iq_step);
 			double w = 2. * M_PI * freq;
@@ -388,4 +390,101 @@ void CQPSKDlg::OnBnClickedGetQpsk()
 
 		DrawGraph(graphsSpec, 0, graphsSpec.size(), graphPens, PicDcQPSKSpec, PicQPSKSpec, type);
 	}
+}
+
+vector<double> ffiltr_comp;
+
+void CQPSKDlg::ConvolutionHS(vector<double> signal, vector<double>& convolution)
+{
+	int t = 0;
+	for (int n = 0; n < (int)(signal.size()); n++)
+	{
+		double counter = 0;
+		for (int m = 0; m < ffiltr_comp.size(); m++)
+		{
+			if ((-m + n) >= 0)
+				counter += signal[-m + n] * ffiltr_comp[m];
+			else
+				continue;
+		}
+		convolution.push_back(counter);
+		t++;
+	}
+}
+
+void CQPSKDlg::OnBnClickedIQfromQpsk()
+{
+	if (!qpskSignal.empty())
+	{
+		double length = sampleRate * duration;
+		vector<double> outI(length);
+		vector<double> outQ(length);
+		double w = 2. * M_PI * freq;
+		ofstream foutI("I_sin.txt");
+		ofstream foutQ("Q_sin.txt");
+		ofstream fQPSK("QPSK.txt");
+		for (int i = 0; i < length; i++)
+		{
+			outI[i] = sin(w * i / sampleRate + startPhase) * qpskSignal[i];
+			foutI << outI[i] <<"\n";
+			outQ[i]= cos(w * i / sampleRate + startPhase) * qpskSignal[i];
+			foutQ<< outQ[i] << "\n";
+			fQPSK << qpskSignal[i] << "\n";
+		}
+		foutI.close(); // закрываем файл
+		foutQ.close(); // закрываем файл
+		fQPSK.close(); // закрываем файл
+		ffiltr_comp.resize(length);
+		ofstream fSINC("SINC.txt");
+		for (double i = 0; i < length; i++)
+		{
+			if (i == 0) ffiltr_comp[i] = 1;
+			else ffiltr_comp[i] = sin(i) / (i);
+			fSINC<< ffiltr_comp[i]<< "\n";
+		}
+		fSINC.close(); // закрываем файл
+		// Свертка с фильтром нижних частот.
+		vector<double> convI;
+		vector<double> convQ;
+		ConvolutionHS(outI, convI);
+		ConvolutionHS(outQ, convQ);
+		ofstream filtr_I("I_filtr.txt");
+		ofstream filtr_Q("Q_filtr.txt");
+		for (int i = 0; i < convI.size(); i++)
+		{
+			filtr_I << convI[i]<< "\n";
+			filtr_Q << convQ[i] << "\n";
+		}
+		filtr_I.close(); // закрываем файл
+		filtr_Q.close();
+		vector<double> bitI(length);
+		vector<double> bitQ(length);
+		ofstream bit_I("I_bit.txt");
+		ofstream bit_Q("Q_bit.txt");
+		for (int i = 0; i < convI.size(); i++)
+		{
+			if (convI[i] < 0)bitI[i] = 0;
+			else bitI[i] = 1;
+			if (convQ[i] < 0)bitQ[i] = 0;
+			else bitQ[i] = 1;
+			bit_I<< bitI[i]<< "\n";
+			bit_Q << bitQ[i] << "\n";
+		}
+		bit_I.close(); // закрываем файл
+		bit_Q.close();
+		int x = 0;
+	}
+}
+
+
+void CQPSKDlg::OnBnClickedGetWindow()
+{
+	OnBnClickedIQfromQpsk();
+	if (pGraphDialog == NULL)
+	{
+		pGraphDialog = new DemodulatorQPSK;
+		pGraphDialog->Create(IDD_DIALOG1);
+		pGraphDialog->ShowWindow(SW_SHOW);
+	}
+	pGraphDialog->ShowWindow(SW_SHOW);
 }
