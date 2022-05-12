@@ -42,9 +42,9 @@ public:
 
 	// Параметры.
 	double ampl = 1.;
-	double startPhase = M_PI;
+	double startPhase = 0.;
 	double sampleRate = 512.;
-	double freq = 5.5;
+	double freq = 20e3;
 	double duration = 1.;
 	int countOfBits = 16;
 	double syncTime;

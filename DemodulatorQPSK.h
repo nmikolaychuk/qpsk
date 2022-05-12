@@ -86,6 +86,12 @@ public:
 	CDC* PicDcIbit;
 	CRect PicIbit;
 
+	CWnd* PicWndOut;
+	CDC* PicDcOut;
+	CRect PicOut;
+
+	// Длительность символа.
+	int period = 32;
 
 	// Функции.
 	void DrawGraph(std::vector<std::vector<double>>& Mass,

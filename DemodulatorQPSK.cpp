@@ -179,6 +179,10 @@ BOOL DemodulatorQPSK::OnInitDialog()
 	PicDcIbit = PicWndIbit->GetDC();
 	PicWndIbit->GetClientRect(&PicIbit);
 
+	PicWndOut = GetDlgItem(IDC_output_BITS);
+	PicDcOut = PicWndOut->GetDC();
+	PicWndOut->GetClientRect(&PicOut);
+
 
 	graphPen.CreatePen(PS_SOLID, 2, RGB(20, 220, 0));
 	graphPens.push_back(&graphPen);
@@ -264,7 +268,7 @@ void DemodulatorQPSK::OnBnClickedGetbitIQ()
 	vector<vector<double>> graphsbitI;
 	graphsbitI.push_back(bitI);
 
-	GrapType type = GrapType::Graphic;
+	GrapType type = GrapType::Bits;
 	DrawGraph(graphsbitI, 0, bitI.size(), graphPens, PicDcIbit, PicIbit, type);
 
 	vector<double> bitQ;
@@ -274,4 +278,33 @@ void DemodulatorQPSK::OnBnClickedGetbitIQ()
 	graphsbitQ.push_back(bitQ);
 
 	DrawGraph(graphsbitQ, 0, bitQ.size(), graphPens, PicDcQbit, PicQbit, type);
+
+	vector<double> out_bit_I;
+	vector<double> out_bit_Q;
+
+	for (int i = 0; i <= bitQ.size(); i += period * 2)
+	{
+		if (i != 0) {
+			out_bit_I.push_back(bitI[i - period]);
+			out_bit_Q.push_back(bitQ[i - period]);
+		}
+	}
+
+	vector<vector<double>> out_graphsbitI;
+	out_graphsbitI.push_back(out_bit_I);
+	DrawGraph(out_graphsbitI, 0, out_bit_I.size(), graphPens, PicDcIbit, PicIbit, type);
+
+	vector<vector<double>> out_graphsbitQ;
+	out_graphsbitQ.push_back(out_bit_Q);
+	DrawGraph(out_graphsbitQ, 0, out_bit_Q.size(), graphPens, PicDcQbit, PicQbit, type);
+
+	vector<double> output;
+	for (int i = 0; i < out_bit_I.size(); i++) {
+		output.push_back(out_bit_I[i]);
+		output.push_back(out_bit_Q[i]);
+	}
+
+	vector<vector<double>> out;
+	out.push_back(output);
+	DrawGraph(out, 0, output.size(), graphPens, PicDcOut, PicOut, type);
 }

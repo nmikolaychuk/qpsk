@@ -295,7 +295,7 @@ vector<double> GetInputBits(int length)
 void CQPSKDlg::OnBnClickedGetInputBits()
 {
 	// Генерация входной последовательности.
-	// srand(time(NULL));
+	srand(time(NULL));
 	inputBits = GetInputBits(countOfBits);
 	vector<vector<double>> graphs;
 	graphs.push_back(inputBits);
@@ -333,15 +333,24 @@ void CQPSKDlg::OnBnClickedGetGeneralSign()
 void CQPSKDlg::OnBnClickedGetIq()
 {
 	if (!inputBits.empty()) {
-		iComp.resize(inputBits.size());
-		qComp.resize(inputBits.size());
-		for (int i = 0; i <= inputBits.size() - 2; i += 2)
-		{
-			iComp[i] = inputBits[i];
-			iComp[i + 1] = inputBits[i];
-			qComp[i] = inputBits[i + 1];
-			qComp[i + 1] = inputBits[i + 1];
+		iComp.clear();
+		qComp.clear();
+		for (int i = 0; i < inputBits.size(); i++) {
+			if (i % 2 == 0) {
+				iComp.push_back(inputBits[i]);
+			}
+			else {
+				qComp.push_back(inputBits[i]);
+			}
 		}
+
+		//for (int i = 0; i <= inputBits.size() - 2; i += 2)
+		//{
+		//	iComp[i] = inputBits[i];
+		//	iComp[i + 1] = inputBits[i];
+		//	qComp[i] = inputBits[i + 1];
+		//	qComp[i + 1] = inputBits[i + 1];
+		//}
 
 		vector<vector<double>> iGraphs;
 		iGraphs.push_back(iComp);
@@ -355,18 +364,22 @@ void CQPSKDlg::OnBnClickedGetIq()
 	}
 }
 
-
 void CQPSKDlg::OnBnClickedGetQpsk()
 {
 	if (!iComp.empty() && !qComp.empty()) {
 		double length = sampleRate * duration;
-		double iq_step = length / (double)countOfBits;
+		double iq_step = length / ((double)countOfBits / 2.);
 		qpskSignal.resize(length);
 		for (int i = 0; i < length; i++) {
 			int index = (int)((double)i / iq_step);
 			double w = 2. * M_PI * freq;
-			qpskSignal[i] = iComp[index] * cos(w * i / sampleRate + startPhase) -
-				qComp[index] * sin(w * i / sampleRate + startPhase);
+			double bufI = 0, bufQ = 0;
+			if (iComp[index] == 0) bufI = -1.;
+			else bufI = 1.;
+			if (qComp[index] == 0) bufQ = -1.;
+			else bufQ = 1.;
+			qpskSignal[i] = bufI * cos(w * i / sampleRate + startPhase) +
+				bufQ * sin(w * i / sampleRate + startPhase);
 		}
 
 		vector<vector<double>> graphsSignal;
@@ -393,13 +406,11 @@ void CQPSKDlg::OnBnClickedGetQpsk()
 }
 
 vector<double> ffiltr_comp;
-
 void CQPSKDlg::ConvolutionHS(vector<double> signal, vector<double>& convolution)
 {
-	int t = 0;
-	for (int n = 0; n < (int)(signal.size()); n++)
+	for (int n = 0; n < signal.size(); n++)
 	{
-		double counter = 0;
+		double counter = 0.;
 		for (int m = 0; m < ffiltr_comp.size(); m++)
 		{
 			if ((-m + n) >= 0)
@@ -408,7 +419,6 @@ void CQPSKDlg::ConvolutionHS(vector<double> signal, vector<double>& convolution)
 				continue;
 		}
 		convolution.push_back(counter);
-		t++;
 	}
 }
 
@@ -425,9 +435,9 @@ void CQPSKDlg::OnBnClickedIQfromQpsk()
 		ofstream fQPSK("QPSK.txt");
 		for (int i = 0; i < length; i++)
 		{
-			outI[i] = sin(w * i / sampleRate + startPhase) * qpskSignal[i];
+			outI[i] = cos(w * i / sampleRate + startPhase) * qpskSignal[i];
 			foutI << outI[i] <<"\n";
-			outQ[i]= cos(w * i / sampleRate + startPhase) * qpskSignal[i];
+			outQ[i]= sin(w * i / sampleRate + startPhase) * qpskSignal[i];
 			foutQ<< outQ[i] << "\n";
 			fQPSK << qpskSignal[i] << "\n";
 		}
@@ -439,7 +449,7 @@ void CQPSKDlg::OnBnClickedIQfromQpsk()
 		for (double i = 0; i < length; i++)
 		{
 			if (i == 0) ffiltr_comp[i] = 1;
-			else ffiltr_comp[i] = sin(i) / (i);
+			else ffiltr_comp[i] = sin(0.3 * i) / (0.3 * i);
 			fSINC<< ffiltr_comp[i]<< "\n";
 		}
 		fSINC.close(); // закрываем файл
